@@ -21,13 +21,13 @@
             <th>Treated For</th>
           </tr>
           <#list records as record>
-          <!--XSS漏洞，没有进行转义直接渲染-->
+          <!--XSS漏洞，没有进行转义直接渲染 - 周润聪-->
           <tr>
-            <td>${record.surname}</td>
-            <td>${record.forename}</td>
-            <td>${record.dateOfBirth}</td>
-            <td>${record.doctorId}</td>
-            <td>${record.diagnosis}</td>
+            <td>${record.surname?html}</td>
+            <td>${record.forename?html}</td>
+            <td>${record.dateOfBirth?html}</td>
+            <td>${record.doctorId?html}</td>
+            <td>${record.diagnosis?html}</td>
           </tr>
           </#list>
         </table>
