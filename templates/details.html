@@ -21,6 +21,7 @@
             <th>Treated For</th>
           </tr>
           <#list records as record>
+          <!--XSS漏洞，没有进行转义直接渲染-->
           <tr>
             <td>${record.surname}</td>
             <td>${record.forename}</td>

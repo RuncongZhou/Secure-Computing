@@ -26,8 +26,10 @@ import freemarker.template.TemplateExceptionHandler;
 public class AppServlet extends HttpServlet {
 
   private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
+  // SQL注入
   private static final String AUTH_QUERY = "select * from user where username='%s' and password='%s'";
   private static final String SEARCH_QUERY = "select * from patient where surname='%s' collate nocase";
+  // 数据库问题：密码明文存储
 
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
   private Connection database;
@@ -40,6 +42,7 @@ public class AppServlet extends HttpServlet {
 
   private void configureTemplateEngine() throws ServletException {
     try {
+      // 可能有错，但介于用户不能直接输入pathname，不一定有错，根据实际情况改
       fm.setDirectoryForTemplateLoading(new File("./templates"));
       fm.setDefaultEncoding("UTF-8");
       fm.setTemplateExceptionHandler(TemplateExceptionHandler.HTML_DEBUG_HANDLER);
@@ -126,6 +129,7 @@ public class AppServlet extends HttpServlet {
         records.add(rec);
       }
     }
+    // 无session，容易通过post来任意访问数据库
     return records;
   }
 }
