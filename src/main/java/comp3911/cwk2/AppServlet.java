@@ -2,6 +2,9 @@ package comp3911.cwk2;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -23,12 +26,16 @@ import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
 
+
 @SuppressWarnings("serial")
 public class AppServlet extends HttpServlet {
 
   private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
   // SQL注入 - 周润聪
-  private static final String AUTH_QUERY = "select * from user where username=? and password=?";
+//  private static final String AUTH_QUERY = "select * from user where username=? and password=?";
+// 明文储存 -cyc
+  private static final String AUTH_QUERY = "select password from user where username=?";
+
   private static final String SEARCH_QUERY = "select * from patient where surname=? collate nocase";
   // 数据库问题：密码明文存储
 
@@ -106,14 +113,34 @@ public class AppServlet extends HttpServlet {
     }
   }
 
-  private boolean authenticated(String username, String password) throws SQLException {
-    try (PreparedStatement stmt = database.prepareStatement(AUTH_QUERY)) {
-      stmt.setString(1, username);
-      stmt.setString(2, password);
-      ResultSet results = stmt.executeQuery();
-      return results.next();
+//  private boolean authenticated(String username, String password) throws SQLException {
+//    try (PreparedStatement stmt = database.prepareStatement(AUTH_QUERY)) {
+//      stmt.setString(1, username);
+//      stmt.setString(2, password);
+//      ResultSet results = stmt.executeQuery();
+//      return results.next();
+//    }
+//  }
+
+  // 明文储存-cyc
+private boolean authenticated(String username, String password) throws SQLException {
+  try (PreparedStatement stmt = database.prepareStatement(AUTH_QUERY)) {
+    stmt.setString(1, username);
+
+    try (ResultSet results = stmt.executeQuery()) {
+      if (!results.next()) {
+        // 用户名不存在
+        return false;
+      }
+
+      // 从 user 表中取出存储的哈希值（password 列现在不再是明文）
+      String storedHash = results.getString("password");
+
+      // 使用 PasswordUtil 做哈希验证
+      return PasswordUtil.verifyPassword(password, storedHash);
     }
   }
+}
 
   private List<Record> searchResults(String surname) throws SQLException {
     List<Record> records = new ArrayList<>();
@@ -133,5 +160,34 @@ public class AppServlet extends HttpServlet {
     }
     // 无session，容易通过post来任意访问数据库
     return records;
+  }
+//  新增明文储存class-cyc
+  public static class PasswordUtil {
+
+    public static String hashPassword(String plainPassword) {
+      try {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] digest = md.digest(plainPassword.getBytes(StandardCharsets.UTF_8));
+        return bytesToHex(digest);
+      } catch (NoSuchAlgorithmException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    public static boolean verifyPassword(String plainPassword, String storedHash) {
+      if (storedHash == null || storedHash.isEmpty()) {
+        return false;
+      }
+      String hashOfInput = hashPassword(plainPassword);
+      return storedHash.equalsIgnoreCase(hashOfInput);
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+      StringBuilder sb = new StringBuilder(bytes.length * 2);
+      for (byte b : bytes) {
+        sb.append(String.format("%02x", b));
+      }
+      return sb.toString();
+    }
   }
 }
