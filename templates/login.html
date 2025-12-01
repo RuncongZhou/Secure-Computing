@@ -9,7 +9,6 @@
   <body>
     <div class="container">
       <h1 class="mt-2 mb-4">Patient Records System</h1>
-      <!--CSEF跨站请求伪造-->
       <form action="" method="POST">
         <div class="row">
           <div class="col-4">
@@ -35,44 +34,80 @@
            </div>
           </div>
         </div>
-        <!--密码明文传输-->
         <button type="submit" class="mt-2 btn btn-primary">Search</button>
       </form>
     </div>
-    <!--ouyanglinan: modify the question of Plain text transmission-->
+    <!--Input validation only-->
     <script>
       (function(){
-        async function sha256Hex(str){
-          const enc = new TextEncoder();
-          const data = enc.encode(str);
-          const hash = await (window.crypto && crypto.subtle ? crypto.subtle.digest('SHA-256', data) : Promise.reject(new Error('Web Crypto not available')));
-          const bytes = Array.from(new Uint8Array(hash));
-          return bytes.map(b => b.toString(16).padStart(2,'0')).join('');
+        function clearValidation(form){
+          const invalids = form.querySelectorAll('.is-invalid');
+          invalids.forEach(el => el.classList.remove('is-invalid'));
+          const feedbacks = form.querySelectorAll('.custom-invalid-feedback');
+          feedbacks.forEach(f => f.remove());
+        }
+
+        function showValidation(input, message){
+          if(!input) return;
+          input.classList.add('is-invalid');
+          let msg = input.parentNode.querySelector('.custom-invalid-feedback');
+          if(!msg){
+            msg = document.createElement('div');
+            msg.className = 'invalid-feedback custom-invalid-feedback';
+            input.parentNode.appendChild(msg);
+          }
+          msg.textContent = message;
+          input.focus();
+        }
+
+        function validateForm(form){
+          const uid = document.getElementById('uid');
+          const pwd = document.getElementById('pwd');
+          const sn = document.getElementById('sn');
+
+          if(!uid || !pwd || !sn) return {valid:false, message:'Form fields missing'};
+
+          const username = uid.value.trim();
+          const password = pwd.value;
+          const surname = sn.value.trim();
+
+          if(username.length === 0){
+            return {valid:false, field:uid, message:'Please enter your user id.'};
+          }
+          if(password.length === 0){
+            return {valid:false, field:pwd, message:'Please enter a password.'};
+          }
+          if(password.length < 5){
+            return {valid:false, field:pwd, message:'Password must be at least 5 characters.'};
+          }
+          if(surname.length === 0){
+            return {valid:false, field:sn, message:'Please enter the patient surname.'};
+          }
+
+          const forbidden = /[<>\\]/;
+          if(forbidden.test(username) || forbidden.test(surname)){
+            return {valid:false, field:username ? uid : sn, message:'Invalid characters in input.'};
+          }
+
+          return {valid:true};
         }
 
         function onSubmitFactory(form){
-          return async function(e){
-            const pwdInput = document.getElementById('pwd');
-            if(!pwdInput) return;
-            const pwd = pwdInput.value;
-            if(!pwd) return; // nothing to do
-            try{
-              const hashed = await sha256Hex(pwd);
-              // replace the password with its hash for transmission
-              pwdInput.value = hashed;
-              // add a hidden flag so the server can detect that password was hashed client-side
-              let flag = form.querySelector('input[name="password_hashed"]');
-              if(!flag){
-                flag = document.createElement('input');
-                flag.type = 'hidden';
-                flag.name = 'password_hashed';
-                form.appendChild(flag);
+          return function(e){
+            e.preventDefault();
+            clearValidation(form);
+
+            const check = validateForm(form);
+            if(!check.valid){
+              if(check.field){
+                showValidation(check.field, check.message || 'Invalid input');
+              } else {
+                alert(check.message || 'Invalid input');
               }
-              flag.value = '1';
-            }catch(err){
-              // if hashing fails, allow normal submit (server should still accept plaintext over TLS)
-              console.error('Password hashing failed, sub mitting plaintext', err);
+              return;
             }
+
+            form.submit();
           };
         }
 
@@ -80,6 +115,7 @@
           const form = document.querySelector('form[action=""]') || document.querySelector('form');
           if(form){
             form.addEventListener('submit', onSubmitFactory(form));
+            form.setAttribute('novalidate', 'novalidate');
           }
         });
       })();
