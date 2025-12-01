@@ -135,8 +135,6 @@ private boolean authenticated(String username, String password) throws SQLExcept
 
       // 从 user 表中取出存储的哈希值（password 列现在不再是明文）
       String storedHash = results.getString("password");
-      System.out.println("Stored hash from WEB: " + password);
-      
       // 使用 PasswordUtil 做哈希验证
       return PasswordUtil.verifyPassword(password, storedHash);
     }
