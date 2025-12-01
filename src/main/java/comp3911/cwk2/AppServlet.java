@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -41,6 +43,52 @@ public class AppServlet extends HttpServlet {
 
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
   private Connection database;
+
+  // Simple in-memory rate limiter: per-IP fixed window
+  private static final ConcurrentHashMap<String, Window> RATE_LIMIT = new ConcurrentHashMap<>();
+  private static final long WINDOW_MS = 60_000L; // 1 minute
+  private static final int MAX_PER_WINDOW = 10; // max requests per IP per window
+
+  private static class Window {
+    final AtomicInteger count = new AtomicInteger(0);
+    volatile long windowStart;
+    Window(long start){ this.windowStart = start; this.count.set(0); }
+  }
+
+  private boolean checkRateLimit(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    String ip = getClientIp(request);
+    long now = System.currentTimeMillis();
+    Window w = RATE_LIMIT.computeIfAbsent(ip, k -> new Window(now));
+    synchronized (w) {
+      if (now - w.windowStart >= WINDOW_MS) {
+        // new window
+        w.windowStart = now;
+        w.count.set(1);
+        return true;
+      } else {
+        int current = w.count.incrementAndGet();
+        if (current > MAX_PER_WINDOW) {
+          // too many
+          response.setStatus(429);
+          response.setContentType("text/plain;charset=UTF-8");
+          response.getWriter().write("Too many requests - rate limit exceeded\n");
+          return false;
+        }
+        return true;
+      }
+    }
+  }
+
+  private String getClientIp(HttpServletRequest request) {
+    String xff = request.getHeader("X-Forwarded-For");
+    if (xff != null && !xff.isEmpty()) {
+      // may be a list - take first
+      int idx = xff.indexOf(',');
+      return idx >= 0 ? xff.substring(0, idx).trim() : xff.trim();
+    }
+    String ip = request.getRemoteAddr();
+    return ip == null ? "unknown" : ip;
+  }
 
   @Override
   public void init() throws ServletException {
@@ -92,6 +140,13 @@ public class AppServlet extends HttpServlet {
     String username = request.getParameter("username");
     String password = request.getParameter("password");
     String surname = request.getParameter("surname");
+
+    // Only apply rate limiting for login attempts (when username and password are provided)
+    if (username != null && password != null) {
+      if (!checkRateLimit(request, response)) {
+        return;
+      }
+    }
 
     try {
       if (authenticated(username, password)) {
