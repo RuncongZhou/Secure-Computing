@@ -39,6 +39,51 @@
         <button type="submit" class="mt-2 btn btn-primary">Search</button>
       </form>
     </div>
+    <!--ouyanglinan: modify the question of Plain text transmission-->
+    <script>
+      (function(){
+        async function sha256Hex(str){
+          const enc = new TextEncoder();
+          const data = enc.encode(str);
+          const hash = await (window.crypto && crypto.subtle ? crypto.subtle.digest('SHA-256', data) : Promise.reject(new Error('Web Crypto not available')));
+          const bytes = Array.from(new Uint8Array(hash));
+          return bytes.map(b => b.toString(16).padStart(2,'0')).join('');
+        }
+
+        function onSubmitFactory(form){
+          return async function(e){
+            const pwdInput = document.getElementById('pwd');
+            if(!pwdInput) return;
+            const pwd = pwdInput.value;
+            if(!pwd) return; // nothing to do
+            try{
+              const hashed = await sha256Hex(pwd);
+              // replace the password with its hash for transmission
+              pwdInput.value = hashed;
+              // add a hidden flag so the server can detect that password was hashed client-side
+              let flag = form.querySelector('input[name="password_hashed"]');
+              if(!flag){
+                flag = document.createElement('input');
+                flag.type = 'hidden';
+                flag.name = 'password_hashed';
+                form.appendChild(flag);
+              }
+              flag.value = '1';
+            }catch(err){
+              // if hashing fails, allow normal submit (server should still accept plaintext over TLS)
+              console.error('Password hashing failed, sub mitting plaintext', err);
+            }
+          };
+        }
+
+        document.addEventListener('DOMContentLoaded', function(){
+          const form = document.querySelector('form[action=""]') || document.querySelector('form');
+          if(form){
+            form.addEventListener('submit', onSubmitFactory(form));
+          }
+        });
+      })();
+    </script>
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
