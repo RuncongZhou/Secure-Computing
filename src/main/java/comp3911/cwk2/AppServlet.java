@@ -212,7 +212,6 @@ private boolean authenticated(String username, String password) throws SQLExcept
         records.add(rec);
       }
     }
-    // 无session，容易通过post来任意访问数据库
     return records;
   }
 //  新增明文储存class-cyc

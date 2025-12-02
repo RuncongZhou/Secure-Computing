@@ -84,9 +84,21 @@
             return {valid:false, field:sn, message:'Please enter the patient surname.'};
           }
 
+          // basic character checks for username/surname
           const forbidden = /[<>\\]/;
           if(forbidden.test(username) || forbidden.test(surname)){
             return {valid:false, field:username ? uid : sn, message:'Invalid characters in input.'};
+          }
+
+          // additional checks on password to detect obvious SQL-injection patterns
+          // disallow single quotes, semicolons and SQL comment markers
+          if(/[';]|--/.test(password)){
+            return {valid:false, field:pwd, message:'Password contains disallowed characters (quotes, semicolons or SQL comments).'};
+          }
+
+          // detect common tautology injections like: anything' OR '1'='1
+          if(/\bOR\b/i.test(password) && /['=]/.test(password)){
+            return {valid:false, field:pwd, message:'Suspicious SQL pattern detected in password.'};
           }
 
           return {valid:true};
