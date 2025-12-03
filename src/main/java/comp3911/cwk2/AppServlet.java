@@ -33,13 +33,13 @@ import freemarker.template.TemplateExceptionHandler;
 public class AppServlet extends HttpServlet {
 
   private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
-  // SQL注入 - 周润聪
+  // SQL Injection - Zhou Runcong
 //  private static final String AUTH_QUERY = "select * from user where username=? and password=?";
-// 明文储存 -cyc
+// Plaintext storage - cyc
   private static final String AUTH_QUERY = "select password from user where username=?";
 
   private static final String SEARCH_QUERY = "select * from patient where surname=? collate nocase";
-  // 数据库问题：密码明文存储
+  // Database issue: Storing passwords in plain text
 
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
   private Connection database;
@@ -98,7 +98,6 @@ public class AppServlet extends HttpServlet {
 
   private void configureTemplateEngine() throws ServletException {
     try {
-      // 可能有错，但介于用户不能直接输入pathname，不一定有错，根据实际情况改
       fm.setDirectoryForTemplateLoading(new File("./templates"));
       fm.setDefaultEncoding("UTF-8");
       fm.setTemplateExceptionHandler(TemplateExceptionHandler.HTML_DEBUG_HANDLER);
@@ -177,20 +176,20 @@ public class AppServlet extends HttpServlet {
 //    }
 //  }
 
-  // 明文储存-cyc
+  // Clear text storage - cyc
 private boolean authenticated(String username, String password) throws SQLException {
   try (PreparedStatement stmt = database.prepareStatement(AUTH_QUERY)) {
     stmt.setString(1, username);
 
     try (ResultSet results = stmt.executeQuery()) {
       if (!results.next()) {
-        // 用户名不存在
+        // Username does not exist
         return false;
       }
 
-      // 从 user 表中取出存储的哈希值（password 列现在不再是明文）
+      // Retrieve the stored hash value from the "user" table (the "password" column is no longer in plain text now)
       String storedHash = results.getString("password");
-      // 使用 PasswordUtil 做哈希验证
+      // Use PasswordUtil for hash verification
       return PasswordUtil.verifyPassword(password, storedHash);
     }
   }
@@ -214,7 +213,7 @@ private boolean authenticated(String username, String password) throws SQLExcept
     }
     return records;
   }
-//  新增明文储存class-cyc
+// Newly added explicit storage of class-cyc
   public static class PasswordUtil {
 
     public static String hashPassword(String plainPassword) {

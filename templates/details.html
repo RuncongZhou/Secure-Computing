@@ -21,7 +21,7 @@
             <th>Treated For</th>
           </tr>
           <#list records as record>
-          <!--XSS漏洞，没有进行转义直接渲染 - 周润聪-->
+          <!-- XSS vulnerability, unescaped content was directly rendered - Zhou Runcong -->
           <tr>
             <td>${record.surname?html}</td>
             <td>${record.forename?html}</td>
